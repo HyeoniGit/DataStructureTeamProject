@@ -7,11 +7,23 @@
 
 ## 실행 방법
 
+### 1) g++ (Linux / Mac / Git Bash)
+
 ```bash
-make                                   # 빌드
+g++ -std=c++17 -Iinclude src/*.cpp src/modules/*.cpp -o ddareungi
 ./ddareungi data/sample.csv            # 샘플 데이터로 실행
 ./ddareungi data/<원본파일>.csv 100000  # 원본 중 앞 10만 건만
 ```
+
+### 2) Visual Studio (Windows)
+
+1. 빈 프로젝트 생성
+2. `src/` 와 `src/modules/` 의 `.cpp` 파일, `include/` 의 `.h` 파일을 프로젝트에 추가
+3. 프로젝트 속성 → C/C++ → 일반 → **추가 포함 디렉터리**에 `include` 폴더 추가
+4. 프로젝트 속성 → 디버깅 → **명령 인수**에 `data/sample.csv` 입력
+5. 실행 (Ctrl + F5)
+
+> 원본 CSV는 용량이 커서 저장소에 포함하지 않았습니다. `data/sample.csv` 로 바로 실행할 수 있습니다.
 
 CMake를 쓰는 경우: `cmake -B build && cmake --build build`
 
