@@ -7,12 +7,11 @@
 
 ## 실행 방법
 
-### 1) g++ (Linux / Mac / Git Bash)
+### 1) make (Mac / Linux, 권장)
 
 ```bash
-g++ -std=c++17 -Iinclude src/*.cpp src/modules/*.cpp -o ddareungi
-./ddareungi data/sample.csv            # 샘플 데이터로 실행
-./ddareungi data/<원본파일>.csv 100000  # 원본 중 앞 10만 건만
+make run     # 빌드 후 data/sample.csv 로 실행
+make clean   # 빌드 결과 삭제
 ```
 
 ### 2) Visual Studio (Windows)
