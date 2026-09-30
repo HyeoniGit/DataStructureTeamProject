@@ -1,0 +1,21 @@
+# 빌드 결과
+build/
+ddareungi
+ddareungi.exe
+*.o
+cmake-build-*/
+
+# IDE
+.vscode/
+.idea/
+*.vcxproj*
+*.sln
+.vs/
+x64/
+Debug/
+Release/
+
+# 원본 대용량 데이터 (월 300~700MB) — 각자 내려받아 data/ 에 두기
+data/*.csv
+!data/sample.csv
+data/*.zip
