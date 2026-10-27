@@ -12,16 +12,17 @@ struct Edge {
 };
 
 // 대여소 정보 CSV 한 줄 + 그래프 단계에서 쌓는 통계
-// - BST 키: id (앞자리 0 때문에 문자열, "00393")
-// - 대여소 정보 파일의 정확한 컬럼명·번호 형식은 확인 필요
+// - BST 키: id (5자리 문자열, "00102")
+//   대여소 정보 파일은 102 처럼 앞자리 0 없음 → 파서가 5자리로 맞춰서 넘김
+// - 대여소 정보 파일: 1~5행 제목, 6행부터 데이터 (대여소 2,789개, 26.6월 기준)
 struct Station {
     // 대여소 정보 CSV (1-1)
     std::string id;             // 대여소번호
-    std::string name;           // 대여소명
-    std::string address;        // 위치(주소)
-    double      latitude  = 0;  // 위도 — 파일에 있는지 확인 필요
-    double      longitude = 0;  // 경도 — 파일에 있는지 확인 필요
-    int         rackCount = 0;  // 거치대 수
+    std::string name;           // 대여소명 (앞뒤 공백 제거)
+    std::string address;        // 주소 — 자치구 + 상세주소 / 상세주소만 중 결정 필요
+    double      latitude  = 0;  // 위도
+    double      longitude = 0;  // 경도
+    int         rackCount = 0;  // 거치대 수 (LCD 거치대수 + QR 거치대수)
 
     // 대여이력 처리 중 누적 (2-1)
     int rentCount   = 0;        // 이 대여소에서 대여한 횟수
