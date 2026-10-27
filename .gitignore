@@ -19,3 +19,4 @@ Release/
 data/*.csv
 !data/sample.csv
 data/*.zip
+data/*.xlsx
