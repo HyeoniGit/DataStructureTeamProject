@@ -11,6 +11,7 @@
 
 ```bash
 make run     # 빌드 후 data/sample.csv 로 실행
+make test    # tests/ 의 테스트 실행
 make clean   # 빌드 결과 삭제
 ```
 
@@ -57,13 +58,13 @@ docs/         제안서·보고서 자료
 | 연결 리스트 | `core/LinkedList.h` | 대여이력 저장, 그래프 인접 리스트, 자전거별 이용 기록(시간순) |
 | 템플릿 | `core/*.h` | 모든 자료구조를 타입 무관하게 구현 |
 | 큐 | `core/Queue.h`, `modules/Traversal` | BFS: 대여소 간 최소 간선 경로 |
-| BST | `core/BST.h`, `modules/StationIndex` | 대여소번호·자전거번호 검색, 자전거별 이동 경로 |
+| BST | `core/BST.h`, `modules/StationIndex`, `modules/BikeIndex` | 대여소 번호 트리·자전거 번호 트리, 검색, 자전거별 이동 경로 |
 | 정렬·이분 탐색 | `modules/Analysis` | 병합 정렬(대여일시 / 대여소 이용 횟수), Top-N, 대여일시 기간 검색 |
 | 방향 가중 그래프 | `modules/Graph` | 대여 → 반납 이동 연결망, 진입·진출 차수, 편도 경로 |
 
 ## 핵심 로직
 
-1. 대여소 정보 CSV 파싱 → 대여소번호 기준 BST 삽입 (중복은 건너뜀)
+1. 대여소 정보 CSV 파싱 → 대여소번호 기준 BST 삽입 (중복은 건너뜀). 대여소 정보는 번호 순으로 정렬돼 있어 배열의 가운데부터 재귀로 넣어 균형 유지
 2. 대여이력 CSV 파싱 → 필요한 컬럼만 `Trip` 구조체로 → 연결 리스트 끝에 추가
 3. 대여 기록마다 대여소 BST에서 대여·반납 노드 검색 (없으면 건너뜀) → 그래프에 "대여 → 반납" 간선 추가 (있으면 이동 횟수·이용시간 누적) → 진입·진출 차수, 편도 경로(A→B vs B→A) 판별
 4. 자전거번호 BST 구성, 노드마다 이용 기록 연결 리스트(시간순)
@@ -72,7 +73,7 @@ docs/         제안서·보고서 자료
 
 > 정렬은 병합 정렬 하나로 통일 (항상 O(n log n), 안정 정렬. 대여일시가 거의 정렬된 상태라 퀵 정렬은 최악에 가까울 수 있음)
 >
-> BST는 정렬된 순서로 넣으면 한쪽으로 쏠림(최악 O(n)) → 선택 기능: 높이 측정 후 중위 순회 배열로 균형 재구축, 전후 높이 비교
+> BST는 정렬된 순서로 넣으면 한쪽으로 쏠림(최악 O(n)) → 대여소 트리는 정렬된 배열의 가운데부터 넣음 (대여소 2,789개 기준 높이 2,789 → 12). 자전거번호는 대여이력에서 섞인 순서로 나와 그대로 넣음
 
 ---
 
@@ -83,7 +84,7 @@ docs/         제안서·보고서 자료
 | 담당 | 파일 |
 |---|---|
 | 이은주 | `core/DynamicArray.h`, `core/LinkedList.h`, `core/Queue.h`, `modules/CsvParser.*`, `modules/Traversal.*` |
-| 주승현 | `core/BST.h`, `modules/StationIndex.*`, `README.md` |
+| 주승현 | `core/BST.h`, `modules/StationIndex.*`, `modules/BikeIndex.*`, `README.md` |
 | 박민수 | `modules/Graph.*` |
 | 추송주 | `modules/Analysis.*`, `main.cpp` |
 
