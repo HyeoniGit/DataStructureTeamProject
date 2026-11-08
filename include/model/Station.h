@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "core/LinkedList.h"
+
 // 간선: 대여 대여소 → 반납 대여소 (방향 가중 그래프, 2-1)
 // - 대여 대여소 노드의 인접 리스트에 들어감
 struct Edge {
@@ -30,8 +32,9 @@ struct Station {
     int outDegree   = 0;        // 진출 차수 (서로 다른 반납 대여소 수)
     int inDegree    = 0;        // 진입 차수 (서로 다른 대여 대여소 수)
 
-    // TODO(박민수): 인접 리스트 — core/LinkedList.h 완성 후 추가
-    // LinkedList<Edge> edges;
+    // 인접 리스트: 이 대여소에서 나가는 간선 (2-1, 박민수)
+    // - 대여소는 대여소 번호 트리(BST) 노드 안에 저장되고, 간선은 여기에 쌓인다.
+    LinkedList<Edge> edges;
 };
 
 #endif
