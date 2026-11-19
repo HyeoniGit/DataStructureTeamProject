@@ -62,9 +62,15 @@ $(GRAPH_BENCH): $(GRAPH_BENCH_SRC) $(MODULE_OBJS)
 		-MF $(GRAPH_BENCH_DEP) \
 		$(GRAPH_BENCH_SRC) $(MODULE_OBJS) -o $@
 
+# Run sort / binary search benchmark on real data
+#   make benchmark-analysis CSV="data/서울특별시 공공자전거 대여이력 정보_2606.csv"
+CSV ?= data/sample.csv
+benchmark-analysis: build/tests/benchmark_analysis
+	./build/tests/benchmark_analysis "$(CSV)"
+
 clean:
 	rm -rf build $(TARGET) $(TARGET).exe
 
 -include $(DEPS) $(TEST_DEPS) $(GRAPH_BENCH_DEP)
 
-.PHONY: all run clean test test-graph benchmark-graph
+.PHONY: all run clean test test-graph benchmark-graph benchmark-analysis
