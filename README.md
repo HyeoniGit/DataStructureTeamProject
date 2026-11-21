@@ -20,8 +20,11 @@ make clean   # 빌드 결과 삭제
 1. 빈 프로젝트 생성
 2. `src/` 와 `src/modules/` 의 `.cpp` 파일, `include/` 의 `.h` 파일을 프로젝트에 추가
 3. 프로젝트 속성 → C/C++ → 일반 → **추가 포함 디렉터리**에 `include` 폴더 추가
-4. 프로젝트 속성 → 디버깅 → **명령 인수**에 `data/sample.csv` 입력
-5. 실행 (Ctrl + F5)
+4. 프로젝트 속성 → C/C++ → 명령줄 → **추가 옵션**에 `/utf-8` 입력 (소스가 UTF-8이라 없으면 한글 문자열에서 빌드 오류)
+5. 프로젝트 속성 → 디버깅 → **명령 인수**에 `data/sample.csv` 입력
+6. 실행 (Ctrl + F5)
+
+> Windows 콘솔은 기본이 CP949라 UTF-8 한글이 깨집니다. `main` 시작에서 `SetConsoleOutputCP(CP_UTF8);` (`<windows.h>`, `#ifdef _WIN32` 안에서) 호출
 
 > 원본 CSV는 용량이 커서 저장소에 포함하지 않았습니다. `data/sample.csv` 로 바로 실행할 수 있습니다.
 

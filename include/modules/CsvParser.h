@@ -16,8 +16,10 @@ struct ParseResult {
 };
 
 // 대여이력 CSV 를 읽어 trips 끝에 추가한다.
-// - 원본(CP949)과 sample.csv(UTF-8) 모두 사용 가능.
+// - 원본(CP949)과 sample.csv(UTF-8), UTF-8 BOM, CRLF 줄바꿈 모두 같은 결과 (tests/test_csv_parser.cpp)
 //   Trip 에 담는 컬럼(번호·일시·숫자)은 모두 영문/숫자라 인코딩과 무관하다.
+//   CP949 둘째 바이트(0x41~0xFE)와 UTF-8 이어지는 바이트(0x80~0xBF)는 ',' '"' 와 겹치지 않아
+//   한글 대여소명이 있어도 칸 나누기가 깨지지 않는다. BOM 은 헤더 줄에만 있어 건너뛰어진다.
 // - 파일을 열지 못하면 false
 bool loadTrips(const std::string& path, LinkedList<Trip>& trips, ParseResult& result);
 
