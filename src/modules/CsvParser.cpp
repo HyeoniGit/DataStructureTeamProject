@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <istream>
 
 namespace {
 
@@ -69,6 +70,55 @@ bool toDouble(const std::string& text, double& out) {
     if (*end != '\0') return false;
     out = value;
     return true;
+}
+
+// 대여소 정보 CSV 칸 위치 (0부터)
+namespace StationCol {
+    const int ID        = 0;  // 대여소번호
+    const int NAME      = 1;  // 보관소(대여소)명
+    const int ADDRESS   = 3;  // 상세주소 (2: 자치구)
+    const int LATITUDE  = 4;
+    const int LONGITUDE = 5;
+    const int LCD_RACKS = 7;  // LCD 거치대수
+    const int QR_RACKS  = 8;  // QR 거치대수
+    const int COUNT     = 11;
+}
+
+// CSV 레코드 하나를 읽는다. 따옴표 안에 줄바꿈이 있으면 다음 줄까지 이어 붙인다.
+// (따옴표 개수가 홀수면 아직 따옴표 안 — "" 는 2개라 홀짝에 영향 없음)
+bool readRecord(std::istream& in, std::string& record) {
+    if (!std::getline(in, record)) return false;
+    std::size_t quotes = 0;
+    for (char c : record) if (c == '"') ++quotes;
+
+    std::string next;
+    while (quotes % 2 == 1 && std::getline(in, next)) {
+        record += '\n';
+        record += next;
+        for (char c : next) if (c == '"') ++quotes;
+    }
+    return true;
+}
+
+// 칸 안의 줄바꿈을 공백으로 바꾸고 앞뒤 공백 제거 ("182-4\r\n(…)" → "182-4 (…)")
+std::string oneLine(const std::string& s) {
+    std::string out;
+    for (char c : s) {
+        if (c == '\r') continue;
+        out += (c == '\n') ? ' ' : c;
+    }
+    return trim(out);
+}
+
+// 빈 칸이면 0
+int toIntOrZero(const std::string& text) {
+    int value = 0;
+    return toInt(trim(text), value) ? value : 0;
+}
+
+double toDoubleOrZero(const std::string& text) {
+    double value = 0.0;
+    return toDouble(trim(text), value) ? value : 0.0;
 }
 
 }  // namespace
@@ -140,6 +190,74 @@ bool loadTrips(const std::string& path, LinkedList<Trip>& trips, ParseResult& re
         if (!toDouble(trim(fields[TripCol::DISTANCE_M]), trip.distanceM)) trip.distanceM = 0.0;
 
         trips.pushBack(trip);
+        ++result.loaded;
+    }
+    return true;
+}
+
+bool isValidUtf8(const std::string& text) {
+    std::size_t i = 0;
+    const std::size_t n = text.size();
+    while (i < n) {
+        const unsigned char c = static_cast<unsigned char>(text[i]);
+        std::size_t len = 0;
+        if (c < 0x80) len = 1;
+        else if (c >= 0xC2 && c <= 0xDF) len = 2;  // 한글은 3바이트 (0xE0~0xEF 로 시작)
+        else if (c >= 0xE0 && c <= 0xEF) len = 3;
+        else if (c >= 0xF0 && c <= 0xF4) len = 4;
+        else return false;  // CP949 한글 첫 바이트(0xB0~0xC8)는 여기서 걸린다
+        if (i + len > n) return false;
+        for (std::size_t k = 1; k < len; ++k) {
+            if ((static_cast<unsigned char>(text[i + k]) & 0xC0) != 0x80) return false;
+        }
+        i += len;
+    }
+    return true;
+}
+
+bool loadStations(const std::string& path, DynamicArray<Station>& stations, StationParseResult& result) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return false;
+
+    std::string record;
+    std::string fields[StationCol::COUNT];
+    bool firstRecord = true;
+    bool inData = false;  // 제목 줄을 지나 첫 대여소가 나왔는지
+
+    while (readRecord(file, record)) {
+        // 엑셀 "CSV UTF-8" 은 파일 맨 앞에 BOM(EF BB BF)을 붙인다
+        if (firstRecord) {
+            if (record.size() >= 3 && record.compare(0, 3, "\xEF\xBB\xBF") == 0) record.erase(0, 3);
+            firstRecord = false;
+        }
+        if (trim(record).empty()) continue;
+
+        const int count = splitCsvLine(record, fields, StationCol::COUNT);
+        const std::string id = normalizeStationId(fields[StationCol::ID]);
+
+        // 제목 줄: 대여소번호 칸이 숫자인 첫 줄이 나올 때까지 건너뛴다
+        if (!inData) {
+            if (id.empty()) continue;
+            inData = true;
+        }
+        ++result.lines;
+
+        if (id.empty() || count <= StationCol::QR_RACKS) {
+            ++result.skipped;
+            continue;
+        }
+
+        Station s;
+        s.id        = id;
+        s.name      = oneLine(fields[StationCol::NAME]);
+        s.address   = oneLine(fields[StationCol::ADDRESS]);
+        s.latitude  = toDoubleOrZero(fields[StationCol::LATITUDE]);
+        s.longitude = toDoubleOrZero(fields[StationCol::LONGITUDE]);
+        s.rackCount = toIntOrZero(fields[StationCol::LCD_RACKS]) + toIntOrZero(fields[StationCol::QR_RACKS]);
+
+        if (!isValidUtf8(s.name) || !isValidUtf8(s.address)) ++result.notUtf8;
+
+        stations.pushBack(s);
         ++result.loaded;
     }
     return true;
