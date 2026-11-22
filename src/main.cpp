@@ -295,6 +295,15 @@ bool menuBike(App& app) {
     std::string id;
     Ask a = askBike("자전거번호 (예: SPB-58380 또는 58380, 빈 Enter: 메뉴로)", id);
     if (a != Ask::Ok) return a != Ask::End;
+
+    // 이동이 많은 자전거(한 달 200회 이상도 있음)는 횟수를 먼저 보여 주고 전체 출력 여부를 묻는다
+    const BikeRoute* route = app.bikes.find(id);
+    if (route != nullptr && route->trips.size() > PRINT_LIMIT) {
+        std::string line;
+        if (!readLine(id + " 이동 " + withComma(static_cast<long long>(route->trips.size())) +
+                          "회 — 전체 출력하려면 y (빈 Enter: 메뉴로)", line)) return false;
+        if (line != "y" && line != "Y") return true;
+    }
     printBikeRoute(app.bikes, app.stations, id, std::cout);
     return true;
 }
@@ -369,7 +378,9 @@ void printEdge(const StationTree& stations, const Graph& graph, const std::strin
     if (e == nullptr) {
         std::cout << "이동 기록 없음\n";
     } else {
-        std::cout << withComma(e->tripCount) << "회, 평균 " << Graph::averageMinutes(e) << "분\n";
+        char avg[32];
+        std::snprintf(avg, sizeof(avg), "%.1f", Graph::averageMinutes(e));   // 16.9851 → 17.0
+        std::cout << withComma(e->tripCount) << "회, 평균 " << avg << "분\n";
     }
 }
 

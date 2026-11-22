@@ -5,6 +5,15 @@ ddareungi.exe
 *.o
 cmake-build-*/
 
+# MSVC 명령줄 빌드(cl) 산출물
+*.obj
+*.pdb
+*.ilk
+*.exe
+
+# 테스트가 중간에 멈췄을 때 남는 임시 CSV
+test_*_tmp*.csv
+
 # IDE
 .vscode/
 .idea/
