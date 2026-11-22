@@ -18,5 +18,6 @@ Release/
 # 원본 대용량 데이터 (월 300~700MB) — 각자 내려받아 data/ 에 두기
 data/*.csv
 !data/sample.csv
+!data/sample_stations.csv
 data/*.zip
 data/*.xlsx
