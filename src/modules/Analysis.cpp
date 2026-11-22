@@ -152,3 +152,64 @@ void printTrips(const DynamicArray<const Trip*>& arr, std::size_t begin, std::si
             << "  (" << t->useMinutes << "분, " << static_cast<long long>(t->distanceM) << "m)\n";
     }
 }
+
+// ===================== 대여소 전용 =====================
+
+namespace {
+
+// 기준값 꺼내기 (TotalCount 는 int 두 개의 합이라 long long 으로)
+long long stationValue(const Station* s, StationKey key) {
+    switch (key) {
+        case StationKey::RentCount:   return s->rentCount;
+        case StationKey::ReturnCount: return s->returnCount;
+        case StationKey::TotalCount:  return static_cast<long long>(s->rentCount) + s->returnCount;
+        case StationKey::OutDegree:   return s->outDegree;
+        case StationKey::InDegree:    return s->inDegree;
+    }
+    return 0;
+}
+
+}  // namespace
+
+const char* stationKeyName(StationKey key) {
+    switch (key) {
+        case StationKey::RentCount:   return "대여 횟수";
+        case StationKey::ReturnCount: return "반납 횟수";
+        case StationKey::TotalCount:  return "이용 횟수(대여+반납)";
+        case StationKey::OutDegree:   return "진출 차수";
+        case StationKey::InDegree:    return "진입 차수";
+    }
+    return "";
+}
+
+void buildStationPtrArray(const StationTree& tree, DynamicArray<const Station*>& out) {
+    out.clear();
+    out.reserve(tree.size());
+    tree.inorder([&out](const std::string&, const Station& s) { out.pushBack(&s); });
+}
+
+void sortStations(DynamicArray<const Station*>& arr, StationKey key, bool descending) {
+    // 같은 값이면 대여소번호가 작은 쪽이 앞 → 직전에 어떤 기준으로 정렬했든 결과가 항상 같다
+    mergeSort(arr, [key, descending](const Station* a, const Station* b) {
+        long long va = stationValue(a, key);
+        long long vb = stationValue(b, key);
+        if (va != vb) return descending ? vb < va : va < vb;
+        return a->id < b->id;
+    });
+}
+
+std::size_t topNStations(DynamicArray<const Station*>& arr, StationKey key, std::size_t n) {
+    sortStations(arr, key, true);
+    return n < arr.size() ? n : arr.size();
+}
+
+void printStations(const DynamicArray<const Station*>& arr, std::size_t begin, std::size_t end,
+                   std::ostream& out) {
+    if (end > arr.size()) end = arr.size();
+    for (std::size_t i = begin; i < end; ++i) {
+        const Station* s = arr[i];
+        out << (i - begin + 1) << ". " << s->id << " " << s->name
+            << "  대여 " << s->rentCount << " / 반납 " << s->returnCount
+            << " / 진출 " << s->outDegree << " / 진입 " << s->inDegree << "\n";
+    }
+}

@@ -8,6 +8,7 @@
 #include "core/LinkedList.h"
 #include "modules/Analysis.h"
 #include "modules/CsvParser.h"
+#include "modules/Graph.h"
 #include "modules/StationIndex.h"
 
 namespace {
@@ -264,6 +265,84 @@ void testSampleCsv() {
     check(sortedAfter && arr.size() == trips.size(), "sample.csv: 대여일시 정렬 후 오름차순");
 }
 
+
+// ----- 대여소 정렬 · TOP-N -----
+
+void addStation(StationTree& tree, const std::string& id, const std::string& name) {
+    Station s;
+    s.id = id;
+    s.name = name;
+    tree.insert(id, s);
+}
+
+// fillTrips 의 6건으로 그래프를 쌓으면
+//   대여: 00393 3, 00102 2, 00207 1, 00500 0
+//   반납: 00102 2, 00207 2, 00393 2, 00500 0
+//   진출: 00102 2, 00393 2, 00207 1 / 진입: 00207 2, 00393 2, 00102 1
+std::string ids(const DynamicArray<const Station*>& arr, std::size_t n) {
+    std::string r;
+    for (std::size_t i = 0; i < n && i < arr.size(); ++i) {
+        if (i > 0) r += ",";
+        r += arr[i]->id;
+    }
+    return r;
+}
+
+void testStationSort() {
+    StationTree stations;
+    addStation(stations, "00393", "동대문역 8번 출구");
+    addStation(stations, "00102", "망원역 1번출구 앞");
+    addStation(stations, "00500", "이용 없는 대여소");
+    addStation(stations, "00207", "여의나루역 1번출구 앞");
+
+    LinkedList<Trip> trips;
+    fillTrips(trips);
+    Graph graph(stations);
+    Graph::BuildStats stats;
+    graph.buildGraph(trips, stats);
+
+    DynamicArray<const Station*> arr;
+    buildStationPtrArray(stations, arr);
+    check(ids(arr, 4) == "00102,00207,00393,00500", "대여소 포인터 배열: 트리 중위 순회 = 번호 순");
+    check(arr[0] == stations.find("00102"), "배열에는 트리 노드 안 대여소 주소가 그대로 들어감");
+
+    std::size_t n = topNStations(arr, StationKey::RentCount, 2);
+    check(n == 2 && ids(arr, 2) == "00393,00102" && arr[0]->rentCount == 3,
+          "대여 횟수 TOP-2: 00393(3), 00102(2)");
+
+    sortStations(arr, StationKey::TotalCount, true);
+    check(ids(arr, 4) == "00393,00102,00207,00500", "이용 횟수(대여+반납) 내림차순: 5, 4, 3, 0");
+
+    sortStations(arr, StationKey::ReturnCount, true);
+    check(ids(arr, 4) == "00102,00207,00393,00500", "반납 횟수 동점(2) → 대여소번호 순");
+
+    sortStations(arr, StationKey::OutDegree, true);
+    check(ids(arr, 4) == "00102,00393,00207,00500", "진출 차수 내림차순, 동점은 번호 순 (직전 정렬과 무관)");
+
+    sortStations(arr, StationKey::InDegree, false);
+    check(ids(arr, 4) == "00500,00102,00207,00393", "진입 차수 오름차순: 0, 1, 2, 2");
+
+    check(topNStations(arr, StationKey::RentCount, 0) == 0, "대여소 TOP-0 → 0개");
+    check(topNStations(arr, StationKey::RentCount, 100) == 4, "N 이 대여소 수보다 크면 전체 개수");
+
+    DynamicArray<const Station*> empty;
+    StationTree noStations;
+    buildStationPtrArray(noStations, empty);
+    check(empty.empty() && topNStations(empty, StationKey::TotalCount, 3) == 0, "대여소가 없으면 0개");
+
+    topNStations(arr, StationKey::RentCount, 1);
+    std::ostringstream out;
+    printStations(arr, 0, 1, out);
+    check(out.str() == "1. 00393 동대문역 8번 출구  대여 3 / 반납 2 / 진출 2 / 진입 2\n",
+          "대여소 출력: 번호, 이름, 대여·반납 횟수, 진출·진입 차수");
+
+    std::string names;
+    for (int k = 0; k < STATION_KEY_COUNT; ++k) {
+        if (stationKeyName(static_cast<StationKey>(k))[0] == '\0') names = "빈 이름";
+    }
+    check(names.empty(), "대여소 기준 이름이 모두 있음");
+}
+
 }  // namespace
 
 int main() {
@@ -273,6 +352,7 @@ int main() {
     testTopN();
     testTripSearch();
     testPrint();
+    testStationSort();
     testSampleCsv();
 
     std::printf("\n%s (실패 %d)\n", failures == 0 ? "모두 통과" : "실패 있음", failures);

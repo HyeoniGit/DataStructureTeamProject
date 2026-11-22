@@ -11,8 +11,10 @@
 #include "modules/StationIndex.h"
 
 // 정렬 · TOP-N · 이분 탐색 (단계 2-2, 3-1, 3-2 / 발표 3-1 ~ 3-3)
+// - 대여 기록: 7개 기준 정렬, TOP-N, 이분 탐색
+// - 대여소: 이용 횟수·차수 기준 정렬, TOP-N (파일 아래쪽 "대여소 전용")
 //
-// 흐름
+// 흐름 (대여 기록)
 //   대여이력 연결 리스트 → 기록 주소를 포인터 배열에 복사 (buildTripPtrArray)
 //   → 기준을 골라 병합 정렬 (sortTrips) → 앞에서 N개 (topN) / 이분 탐색 (findTrips...)
 //
@@ -182,5 +184,50 @@ const Trip* findTripExact(const DynamicArray<const Trip*>& arr, TripKey key, con
 // 예: "1. SPB-58380  06-01 00:01 서울체육고등학교 앞 -> 06-01 00:01 서울체육고등학교 앞  (0분, 0m)"
 void printTrips(const DynamicArray<const Trip*>& arr, std::size_t begin, std::size_t end,
                 const StationTree& stations, std::ostream& out);
+
+// ===================== 대여소 전용 =====================
+//
+// 흐름
+//   대여소 번호 트리 → 대여소 노드 주소를 포인터 배열에 복사 (buildStationPtrArray)
+//   → 이용 횟수 등 기준으로 병합 정렬 (sortStations) → 앞에서 N개 (topNStations)
+//
+// - 횟수·차수는 그래프 구축(Graph::buildGraph) 때 Station 에 쌓인다.
+//   → 그래프를 만든 뒤에 배열을 만들어야 값이 0 이 아니다.
+// - 대여소는 트리 노드 안에 있고 노드는 재할당되지 않으므로 주소를 그대로 담아도 된다.
+// - 트리 중위 순회로 담으므로 정렬 전 배열은 대여소번호 순
+// - 같은 값이면 대여소번호가 작은 대여소가 앞 (직전 정렬 기준과 상관없이 결과가 같음)
+
+// 정렬 기준: 그래프 단계에서 쌓은 대여소 통계
+enum class StationKey {
+    RentCount,     // 이 대여소에서 대여한 횟수
+    ReturnCount,   // 이 대여소로 반납한 횟수
+    TotalCount,    // 대여 + 반납 (대여소 이용량)
+    OutDegree,     // 진출 차수 (서로 다른 반납 대여소 수)
+    InDegree       // 진입 차수 (서로 다른 대여 대여소 수)
+};
+
+const int STATION_KEY_COUNT = 5;
+
+// 기준 이름 ("대여 횟수" 등) — 메뉴·출력용
+const char* stationKeyName(StationKey key);
+
+// 대여소 번호 트리의 대여소 주소를 번호 순으로 out 에 담는다 (기존 내용은 지움).
+// - tree 는 out 을 쓰는 동안 살아 있어야 한다
+// 복잡도: O(V)
+void buildStationPtrArray(const StationTree& tree, DynamicArray<const Station*>& out);
+
+// key 기준 병합 정렬. descending 이 true 면 큰 값부터. 같은 값이면 대여소번호 오름차순.
+// 복잡도: O(V log V)
+void sortStations(DynamicArray<const Station*>& arr, StationKey key, bool descending);
+
+// 대여소 TOP-N: key 기준 내림차순 정렬 후 꺼낼 개수 min(n, 전체)를 돌려준다.
+// → arr[0] ~ arr[반환값 - 1] 이 상위 N개
+// 복잡도: 정렬 O(V log V) + 꺼내기 O(N)
+std::size_t topNStations(DynamicArray<const Station*>& arr, StationKey key, std::size_t n);
+
+// arr[begin, end) 의 대여소를 한 줄씩 출력한다.
+// 예: "1. 00102 망원역 1번출구 앞  대여 1234 / 반납 1100 / 진출 85 / 진입 90"
+void printStations(const DynamicArray<const Station*>& arr, std::size_t begin, std::size_t end,
+                   std::ostream& out);
 
 #endif
