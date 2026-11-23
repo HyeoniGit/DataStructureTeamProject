@@ -64,7 +64,7 @@ int main() {
     check(shortestPath(graph, "00001", "00004", path, &stats) == PathFound &&
               pathIs(path, {"00001", "00005", "00004"}),
           "picks shorter of two routes 1->5->4 (not 1->2->3->4)");
-    check(stats.visitedCount >= 3, "stats: visited count filled");
+    check(stats.visitedCount == 5, "stats: visited 1, 2, 5, 3, 4 (stops when 4 is found)");
 
     check(shortestPath(graph, "00002", "00005", path) == PathFound &&
               pathIs(path, {"00002", "00003", "00004", "00001", "00005"}),

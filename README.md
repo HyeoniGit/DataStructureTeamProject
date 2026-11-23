@@ -10,7 +10,7 @@
 ### 1) make (Mac / Linux, 권장)
 
 ```bash
-make run     # 빌드 후 data/sample.csv 로 실행
+make run     # 빌드 후 샘플 데이터(data/sample_stations.csv, data/sample.csv)로 실행
 make test    # tests/ 의 테스트 실행
 make clean   # 빌드 결과 삭제
 ```
@@ -21,14 +21,25 @@ make clean   # 빌드 결과 삭제
 2. `src/` 와 `src/modules/` 의 `.cpp` 파일, `include/` 의 `.h` 파일을 프로젝트에 추가
 3. 프로젝트 속성 → C/C++ → 일반 → **추가 포함 디렉터리**에 `include` 폴더 추가
 4. 프로젝트 속성 → C/C++ → 명령줄 → **추가 옵션**에 `/utf-8` 입력 (소스가 UTF-8이라 없으면 한글 문자열에서 빌드 오류)
-5. 프로젝트 속성 → 디버깅 → **명령 인수**에 `data/sample.csv` 입력
+5. 프로젝트 속성 → 디버깅 → **작업 디렉터리**를 저장소 최상위 폴더로 지정. **명령 인수**를 비워 두면 샘플 데이터로 실행 (실제 데이터는 아래 "실행 인수" 참고)
 6. 실행 (Ctrl + F5)
 
-> Windows 콘솔은 기본이 CP949라 UTF-8 한글이 깨집니다. `main` 시작에서 `SetConsoleOutputCP(CP_UTF8);` (`<windows.h>`, `#ifdef _WIN32` 안에서) 호출
+> Windows 콘솔은 기본이 CP949라 UTF-8 한글이 깨지므로 `main` 시작에서 `SetConsoleOutputCP(CP_UTF8)` 를 호출합니다.
 
-> 원본 CSV는 용량이 커서 저장소에 포함하지 않았습니다. `data/sample.csv` 로 바로 실행할 수 있습니다.
+g++ 한 줄 빌드: `g++ -std=c++17 -Iinclude src/*.cpp src/modules/*.cpp -o ddareungi && ./ddareungi`
 
-g++ 한 줄 빌드: `g++ -std=c++17 -Iinclude src/*.cpp src/modules/*.cpp -o ddareungi && ./ddareungi data/sample.csv`
+### 실행 인수와 메뉴
+
+```bash
+./ddareungi [대여소 정보 CSV] [대여이력 CSV]
+./ddareungi       # 인수 없음 → 샘플: data/sample_stations.csv, data/sample.csv
+./ddareungi "data/공공자전거 대여소 정보(26.6월 기준).csv" "data/서울특별시 공공자전거 대여이력 정보_2606.csv"
+```
+
+- 시작할 때 대여소 트리 → 대여이력 리스트 → 그래프 → 자전거 트리 → 정렬용 배열을 만들고 메뉴를 띄웁니다.
+- 메뉴 번호(1~7)를 고르고 값을 입력하면 결과를 출력한 뒤 다시 메뉴로 돌아옵니다. **`q` 를 입력하면 종료**하고, 값을 묻는 중에 빈 Enter 를 누르면 메뉴로 돌아갑니다.
+
+> 원본 CSV는 용량이 커서 저장소에 포함하지 않았습니다. 인수 없이 실행하면 샘플 데이터로 바로 실행됩니다.
 
 CMake를 쓰는 경우: `cmake -B build && cmake --build build`
 
@@ -37,7 +48,8 @@ CMake를 쓰는 경우: `cmake -B build && cmake --build build`
 - [서울시 공공자전거 따릉이 대여소 정보](https://data.seoul.go.kr/dataList/OA-13252/F/1/datasetView.do): 대여소번호, 대여소명, 위치, 거치대 수 (`.xlsx` → CSV(UTF-8)로 변환해서 사용)
 - [서울시 공공자전거 따릉이 대여이력 정보](https://data.seoul.go.kr/dataList/OA-15182/F/1/datasetView.do): 월 단위 CSV
 - 원본 CSV는 용량이 커서 저장소에 올리지 않습니다. 내려받아 `data/` 폴더에 넣으세요.
-- `data/sample.csv`: 테스트용 20줄
+- `data/sample.csv`: 대여이력 샘플 (헤더 + 19건)
+- `data/sample_stations.csv`: 대여소 정보 샘플 (sample.csv 에 나오는 대여소 30곳, 원본과 같은 형식)
 
 ## 폴더 구조
 

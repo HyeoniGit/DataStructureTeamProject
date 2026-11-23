@@ -32,7 +32,7 @@ build/%.o: src/%.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 run: $(TARGET)
-	./$(TARGET) data/sample.csv
+	./$(TARGET) data/sample_stations.csv data/sample.csv
 
 # Run all functional tests
 test: $(TEST_BINS)

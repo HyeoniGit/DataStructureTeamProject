@@ -5,6 +5,15 @@ ddareungi.exe
 *.o
 cmake-build-*/
 
+# MSVC 명령줄 빌드(cl) 산출물
+*.obj
+*.pdb
+*.ilk
+*.exe
+
+# 테스트가 중간에 멈췄을 때 남는 임시 CSV
+test_*_tmp*.csv
+
 # IDE
 .vscode/
 .idea/
@@ -18,5 +27,6 @@ Release/
 # 원본 대용량 데이터 (월 300~700MB) — 각자 내려받아 data/ 에 두기
 data/*.csv
 !data/sample.csv
+!data/sample_stations.csv
 data/*.zip
 data/*.xlsx
