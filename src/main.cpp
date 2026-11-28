@@ -1,7 +1,7 @@
 // 따릉이 대여소 이동 연결망 분석 — 메뉴 (입력 → 결과 출력)
 //
 // 실행: ddareungi [대여소 정보 CSV] [대여이력 CSV]
-//   인수가 없으면 data/sample_stations.csv, data/sample.csv
+//   인수가 없으면 data/nowongu_stations.csv, data/nowongu_trips.csv (노원구 샘플)
 //
 // 흐름
 //   시작: 대여소 → 대여소 번호 트리 (1-1) → 대여이력 연결 리스트 (1-2) → 방향 가중 그래프 (2-1)
@@ -34,8 +34,8 @@
 
 namespace {
 
-const char* DEFAULT_STATIONS = "data/sample_stations.csv";
-const char* DEFAULT_TRIPS    = "data/sample.csv";
+const char* DEFAULT_STATIONS = "data/nowongu_stations.csv";
+const char* DEFAULT_TRIPS    = "data/nowongu_trips.csv";
 
 const std::size_t PRINT_LIMIT = 20;   // 검색 결과는 앞에서 이만큼만 출력
 const int         MAX_TOP_N   = 100;  // TOP-N 의 N 상한
@@ -126,12 +126,26 @@ bool toNumber(const std::string& text, long long& out) {
     return true;
 }
 
+// 값 하나를 묻는다.
+// - def == nullptr (자유 메뉴): 빈 Enter → Back (메뉴로)
+// - def != nullptr (순차 체험): 빈 Enter → *def (예시 값), s → Back (다음 단계로)
+Ask readAnswer(const std::string& prompt, const std::string* def, std::string& line) {
+    std::string shown = prompt;
+    if (def != nullptr) shown += def->empty() ? " [Enter: 건너뛰기]" : " [Enter: " + *def + ", s: 건너뛰기]";
+    if (!readLine(shown, line)) return Ask::End;
+    if (def != nullptr) {
+        if (line == "s" || line == "S") return Ask::Back;
+        if (line.empty()) line = *def;
+    }
+    return line.empty() ? Ask::Back : Ask::Ok;
+}
+
 // lo ~ hi 사이 정수
-Ask askNumber(const std::string& prompt, int lo, int hi, int& out) {
+Ask askNumber(const std::string& prompt, int lo, int hi, int& out, const std::string* def = nullptr) {
     std::string line;
     while (true) {
-        if (!readLine(prompt + " (" + std::to_string(lo) + "~" + std::to_string(hi) + ")", line)) return Ask::End;
-        if (line.empty()) return Ask::Back;
+        Ask a = readAnswer(prompt + " (" + std::to_string(lo) + "~" + std::to_string(hi) + ")", def, line);
+        if (a != Ask::Ok) return a;
         long long value = 0;
         if (toNumber(line, value) && value >= lo && value <= hi) {
             out = static_cast<int>(value);
@@ -142,11 +156,12 @@ Ask askNumber(const std::string& prompt, int lo, int hi, int& out) {
 }
 
 // 대여소번호: "102" → "00102". 대여소 번호 트리에 있는 번호만 받는다.
-Ask askStation(const std::string& prompt, const StationTree& stations, std::string& id) {
+Ask askStation(const std::string& prompt, const StationTree& stations, std::string& id,
+               const std::string* def = nullptr) {
     std::string line;
     while (true) {
-        if (!readLine(prompt, line)) return Ask::End;
-        if (line.empty()) return Ask::Back;
+        Ask a = readAnswer(prompt, def, line);
+        if (a != Ask::Ok) return a;
         id = normalizeStationId(line);
         if (id.empty()) {
             std::cout << "  대여소번호는 5자리 이하 숫자입니다. (예: 102, 00393)\n";
@@ -160,11 +175,11 @@ Ask askStation(const std::string& prompt, const StationTree& stations, std::stri
 
 // 일시: "2026-06-01 08:00:00" / "2026-06-01 08:00" / "2026-06-01"
 // 날짜만 쓰면 시작은 00:00:00, 끝은 23:59:59 로 본다.
-Ask askDateTime(const std::string& prompt, bool isEnd, long long& out) {
+Ask askDateTime(const std::string& prompt, bool isEnd, long long& out, const std::string* def = nullptr) {
     std::string line;
     while (true) {
-        if (!readLine(prompt, line)) return Ask::End;
-        if (line.empty()) return Ask::Back;
+        Ask a = readAnswer(prompt, def, line);
+        if (a != Ask::Ok) return a;
         std::string text = line;
         if (text.size() == 10) text += isEnd ? " 23:59:59" : " 00:00:00";
         else if (text.size() == 16) text += isEnd ? ":59" : ":00";
@@ -175,10 +190,10 @@ Ask askDateTime(const std::string& prompt, bool isEnd, long long& out) {
 }
 
 // 자전거번호: "SPB-58380" 또는 숫자만 "58380"
-Ask askBike(const std::string& prompt, std::string& id) {
+Ask askBike(const std::string& prompt, std::string& id, const std::string* def = nullptr) {
     std::string line;
-    if (!readLine(prompt, line)) return Ask::End;
-    if (line.empty()) return Ask::Back;
+    Ask a = readAnswer(prompt, def, line);
+    if (a != Ask::Ok) return a;
     long long digits = 0;
     if (toNumber(line, digits)) {
         id = "SPB-" + line;
@@ -274,13 +289,88 @@ bool buildAll(App& app, Graph& graph, const std::string& stationPath, const std:
     return true;
 }
 
+// ===================== 순차 체험 예시 값 =====================
+// 순차 체험에서 Enter 만 눌러도 결과가 나오도록, 불러온 데이터에서 예시 입력을 고른다.
+// (다른 CSV 를 인수로 줘도 그 데이터에 맞는 값이 나온다. 못 고른 값은 빈 문자열 → Enter 로 건너뜀)
+
+struct Demo {
+    std::string station;              // 1. 대여 횟수 1위 대여소
+    std::string bike;                 // 2. 이동이 3 ~ PRINT_LIMIT 회인 첫 자전거
+    std::string from, to;             // 3. 첫 기록 날짜 08:00 ~ 08:10
+    std::string tripKey = "1";        // 4. 이용시간
+    std::string stationKey = "1";     // 5. 대여 횟수
+    std::string topN = "5";           // 4, 5. N
+    std::string edgeA, edgeB;         // 6. 1위 대여소 → 그곳에서 가장 많이 간 다른 대여소
+    std::string pathFrom, pathTo;     // 7. 1위 대여소 → 두 번 이상 갈아타야 닿는 대여소
+};
+
+// 20260601 → "2026-06-01"
+std::string dateText(long long yyyymmdd) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%04lld-%02lld-%02lld", yyyymmdd / 10000, yyyymmdd / 100 % 100, yyyymmdd % 100);
+    return buf;
+}
+
+Demo makeDemo(App& app, const Graph& graph) {
+    Demo d;
+
+    // 1, 6, 7: 대여 횟수 1위 대여소 (TOP-N 과 같은 병합 정렬. 메뉴 5 에서 다시 정렬하므로 순서는 상관없음)
+    std::size_t count = topNStations(app.stationArr, StationKey::RentCount, app.stationArr.size());
+    if (count > 0 && app.stationArr[0]->rentCount > 0) {
+        const Station* top = app.stationArr[0];
+        d.station = d.edgeA = d.pathFrom = top->id;
+
+        const Edge* best = nullptr;
+        for (const auto* n = top->edges.head(); n != nullptr; n = n->next) {
+            if (n->data.toStationId == top->id) continue;
+            if (best == nullptr || n->data.tripCount > best->tripCount) best = &n->data;
+        }
+        if (best != nullptr) d.edgeB = best->toStationId;
+
+        // 이용 많은 대여소부터 보며, 간선 2개 이상(대여소 3곳 이상) 경로가 나오는 첫 도착지
+        for (std::size_t i = 1; i < count && app.stationArr[i]->rentCount > 0; ++i) {
+            DynamicArray<std::string> path;
+            if (shortestPath(graph, top->id, app.stationArr[i]->id, path) == PathFound && path.size() >= 3) {
+                d.pathTo = app.stationArr[i]->id;
+                break;
+            }
+        }
+    }
+
+    // 2: 이동 경로를 한 화면에 볼 수 있는 자전거
+    for (const auto* n = app.trips.head(); n != nullptr; n = n->next) {
+        const BikeRoute* route = app.bikes.find(n->data.bikeId);
+        if (route != nullptr && route->trips.size() >= 3 && route->trips.size() <= PRINT_LIMIT) {
+            d.bike = route->bikeId;
+            break;
+        }
+    }
+
+    // 3: 첫 기록 날짜의 출근 시간대
+    if (app.trips.head() != nullptr) {
+        std::string day = dateText(app.trips.head()->data.rentTime / 1000000);
+        d.from = day + " 08:00";
+        d.to   = day + " 08:10";
+    }
+    return d;
+}
+
 // ===================== 메뉴 기능 =====================
+// demo == nullptr 이면 자유 메뉴, 아니면 순차 체험 (예시 값을 기본으로 묻는다).
 // 각 함수는 입력이 끝났으면(Ask::End) false 를 돌려 프로그램을 끝낸다.
 
+// 자유 메뉴에서만 첫 질문에 붙이는 안내
+std::string backHint(const Demo* demo) { return demo == nullptr ? " (빈 Enter: 메뉴로)" : ""; }
+
+// demo 의 한 칸을 가리킨다 (자유 메뉴면 nullptr)
+const std::string* pick(const Demo* demo, const std::string Demo::*field) {
+    return demo == nullptr ? nullptr : &(demo->*field);
+}
+
 // 1. 대여소 검색 (BST)
-bool menuStation(App& app) {
+bool menuStation(App& app, const Demo* demo) {
     std::string id;
-    Ask a = askStation("대여소번호 (빈 Enter: 메뉴로)", app.stations, id);
+    Ask a = askStation("대여소번호" + backHint(demo), app.stations, id, pick(demo, &Demo::station));
     if (a != Ask::Ok) return a != Ask::End;
 
     const Station* s = app.stations.find(id);
@@ -291,9 +381,9 @@ bool menuStation(App& app) {
 }
 
 // 2. 자전거 이동 경로 (BST)
-bool menuBike(App& app) {
+bool menuBike(App& app, const Demo* demo) {
     std::string id;
-    Ask a = askBike("자전거번호 (예: SPB-58380 또는 58380, 빈 Enter: 메뉴로)", id);
+    Ask a = askBike("자전거번호 (예: SPB-58380 또는 58380)" + backHint(demo), id, pick(demo, &Demo::bike));
     if (a != Ask::Ok) return a != Ask::End;
 
     // 이동이 많은 자전거(한 달 200회 이상도 있음)는 횟수를 먼저 보여 주고 전체 출력 여부를 묻는다
@@ -301,7 +391,7 @@ bool menuBike(App& app) {
     if (route != nullptr && route->trips.size() > PRINT_LIMIT) {
         std::string line;
         if (!readLine(id + " 이동 " + withComma(static_cast<long long>(route->trips.size())) +
-                          "회 — 전체 출력하려면 y (빈 Enter: 메뉴로)", line)) return false;
+                          "회 — 전체 출력하려면 y (빈 Enter: 넘어가기)", line)) return false;
         if (line != "y" && line != "Y") return true;
     }
     printBikeRoute(app.bikes, app.stations, id, std::cout);
@@ -309,11 +399,11 @@ bool menuBike(App& app) {
 }
 
 // 3. 기간별 대여 기록 (병합 정렬 + 이분 탐색)
-bool menuPeriod(App& app) {
+bool menuPeriod(App& app, const Demo* demo) {
     long long from = 0, to = 0;
-    Ask a = askDateTime("시작 일시 (예: 2026-06-01 08:00, 빈 Enter: 메뉴로)", false, from);
+    Ask a = askDateTime("시작 일시 (예: 2026-06-01 08:00)" + backHint(demo), false, from, pick(demo, &Demo::from));
     if (a != Ask::Ok) return a != Ask::End;
-    a = askDateTime("끝 일시   (예: 2026-06-01 08:10)", true, to);
+    a = askDateTime("끝 일시   (예: 2026-06-01 08:10)", true, to, pick(demo, &Demo::to));
     if (a != Ask::Ok) return a != Ask::End;
     if (from > to) {
         std::cout << "  시작 일시가 끝 일시보다 늦습니다.\n";
@@ -337,12 +427,12 @@ bool menuPeriod(App& app) {
 }
 
 // 4. 대여 기록 TOP-N (병합 정렬)
-bool menuTripTop(App& app) {
+bool menuTripTop(App& app, const Demo* demo) {
     std::cout << "  1. 이용시간  2. 이용거리\n";
     int choice = 0, n = 0;
-    Ask a = askNumber("기준 (빈 Enter: 메뉴로)", 1, 2, choice);
+    Ask a = askNumber("기준" + backHint(demo), 1, 2, choice, pick(demo, &Demo::tripKey));
     if (a != Ask::Ok) return a != Ask::End;
-    a = askNumber("N", 1, MAX_TOP_N, n);
+    a = askNumber("N", 1, MAX_TOP_N, n, pick(demo, &Demo::topN));
     if (a != Ask::Ok) return a != Ask::End;
 
     TripKey key = choice == 1 ? TripKey::Minutes : TripKey::Distance;
@@ -355,14 +445,14 @@ bool menuTripTop(App& app) {
 }
 
 // 5. 대여소 TOP-N (병합 정렬, 그래프에서 쌓은 횟수·차수)
-bool menuStationTop(App& app) {
+bool menuStationTop(App& app, const Demo* demo) {
     for (int k = 0; k < STATION_KEY_COUNT; ++k) {
         std::cout << "  " << (k + 1) << ". " << stationKeyName(static_cast<StationKey>(k)) << "\n";
     }
     int choice = 0, n = 0;
-    Ask a = askNumber("기준 (빈 Enter: 메뉴로)", 1, STATION_KEY_COUNT, choice);
+    Ask a = askNumber("기준" + backHint(demo), 1, STATION_KEY_COUNT, choice, pick(demo, &Demo::stationKey));
     if (a != Ask::Ok) return a != Ask::End;
-    a = askNumber("N", 1, MAX_TOP_N, n);
+    a = askNumber("N", 1, MAX_TOP_N, n, pick(demo, &Demo::topN));
     if (a != Ask::Ok) return a != Ask::End;
 
     StationKey key = static_cast<StationKey>(choice - 1);
@@ -385,11 +475,11 @@ void printEdge(const StationTree& stations, const Graph& graph, const std::strin
 }
 
 // 6. 두 대여소 간 이동 (방향 가중 그래프)
-bool menuEdge(App& app, const Graph& graph) {
+bool menuEdge(App& app, const Graph& graph, const Demo* demo) {
     std::string a, b;
-    Ask r = askStation("대여소 A 번호 (빈 Enter: 메뉴로)", app.stations, a);
+    Ask r = askStation("대여소 A 번호" + backHint(demo), app.stations, a, pick(demo, &Demo::edgeA));
     if (r != Ask::Ok) return r != Ask::End;
-    r = askStation("대여소 B 번호", app.stations, b);
+    r = askStation("대여소 B 번호", app.stations, b, pick(demo, &Demo::edgeB));
     if (r != Ask::Ok) return r != Ask::End;
 
     printEdge(app.stations, graph, a, b);
@@ -405,11 +495,11 @@ bool menuEdge(App& app, const Graph& graph) {
 }
 
 // 7. 최소 간선 경로 (큐 + BFS)
-bool menuPath(App& app, const Graph& graph) {
+bool menuPath(App& app, const Graph& graph, const Demo* demo) {
     std::string from, to;
-    Ask a = askStation("출발 대여소번호 (빈 Enter: 메뉴로)", app.stations, from);
+    Ask a = askStation("출발 대여소번호" + backHint(demo), app.stations, from, pick(demo, &Demo::pathFrom));
     if (a != Ask::Ok) return a != Ask::End;
-    a = askStation("도착 대여소번호", app.stations, to);
+    a = askStation("도착 대여소번호", app.stations, to, pick(demo, &Demo::pathTo));
     if (a != Ask::Ok) return a != Ask::End;
 
     DynamicArray<std::string> path;
@@ -421,12 +511,55 @@ bool menuPath(App& app, const Graph& graph) {
     return true;
 }
 
+// 기능 1~7: 메뉴 이름과 순차 체험에서 보여 줄 한 줄 설명
+const int FEATURE_COUNT = 7;
+const char* const FEATURE_NAME[FEATURE_COUNT] = {
+    "대여소 검색", "자전거 이동 경로", "기간별 대여 기록", "대여 기록 TOP-N",
+    "대여소 TOP-N", "두 대여소 간 이동", "최소 간선 경로 (BFS)",
+};
+const char* const FEATURE_DESC[FEATURE_COUNT] = {
+    "대여소 번호 트리(BST)에서 찾아 정보와 진출·진입 차수를 봅니다.",
+    "자전거 번호 트리(BST)에서 찾아 시간순 이용 기록(연결 리스트)을 봅니다.",
+    "대여일시로 병합 정렬한 배열에서 이분 탐색으로 기간을 찾습니다.",
+    "이용시간 또는 이용거리로 병합 정렬해 상위 N건을 봅니다.",
+    "그래프에서 쌓은 대여·반납 횟수와 차수로 정렬해 상위 N곳을 봅니다.",
+    "방향 가중 그래프에서 A -> B, B -> A 간선과 편도 여부를 봅니다.",
+    "큐로 너비 우선 탐색(BFS)을 해서 가장 적게 갈아타는 경로를 찾습니다.",
+};
+
+// k 번 기능 실행 (1~7). 입력이 끝났으면 false
+bool runFeature(int k, App& app, const Graph& graph, const Demo* demo) {
+    switch (k) {
+        case 1: return menuStation(app, demo);
+        case 2: return menuBike(app, demo);
+        case 3: return menuPeriod(app, demo);
+        case 4: return menuTripTop(app, demo);
+        case 5: return menuStationTop(app, demo);
+        case 6: return menuEdge(app, graph, demo);
+        case 7: return menuPath(app, graph, demo);
+        default: return true;
+    }
+}
+
+// 순차 체험: 1~7 을 차례로 한 번씩. 입력이 끝났으면 false
+bool runTour(App& app, const Graph& graph, const Demo& demo) {
+    std::cout << "\n==== 기능 체험 (1~" << FEATURE_COUNT << " 차례로) ====\n"
+              << "값을 물으면 Enter 로 예시 값을 쓰거나, 직접 입력하거나, s 로 다음 단계로 넘어갑니다.\n";
+    for (int k = 1; k <= FEATURE_COUNT; ++k) {
+        std::cout << "\n[" << k << "/" << FEATURE_COUNT << "] " << FEATURE_NAME[k - 1] << "\n"
+                  << "  " << FEATURE_DESC[k - 1] << "\n";
+        if (!runFeature(k, app, graph, &demo)) return false;
+    }
+    std::cout << "\n체험을 마쳤습니다. 다시 해 볼 기능 번호를 고르세요.\n";
+    return true;
+}
+
 void printMenu() {
-    std::cout << "\n==== 따릉이 대여소 이동 연결망 ====\n"
-              << " 1. 대여소 검색          5. 대여소 TOP-N\n"
-              << " 2. 자전거 이동 경로      6. 두 대여소 간 이동\n"
-              << " 3. 기간별 대여 기록      7. 최소 간선 경로 (BFS)\n"
-              << " 4. 대여 기록 TOP-N       q. 종료\n";
+    std::cout << "\n==== 따릉이 대여소 이동 연결망 ====\n";
+    for (int k = 1; k <= FEATURE_COUNT; ++k) {
+        std::cout << " " << k << ". " << FEATURE_NAME[k - 1] << "\n";
+    }
+    std::cout << " q. 종료\n";
 }
 
 }  // namespace
@@ -448,22 +581,22 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // 1) 순차 체험 → 2) 자유 메뉴
+    Demo demo = makeDemo(app, graph);
+    bool keepGoing = runTour(app, graph, demo);
+
     std::string line;
-    while (true) {
+    while (keepGoing) {
         printMenu();
         if (!readLine("선택", line)) break;   // 입력 끝 → 종료
         if (line == "q" || line == "Q") break;
 
-        bool keepGoing = true;
-        if      (line == "1") keepGoing = menuStation(app);
-        else if (line == "2") keepGoing = menuBike(app);
-        else if (line == "3") keepGoing = menuPeriod(app);
-        else if (line == "4") keepGoing = menuTripTop(app);
-        else if (line == "5") keepGoing = menuStationTop(app);
-        else if (line == "6") keepGoing = menuEdge(app, graph);
-        else if (line == "7") keepGoing = menuPath(app, graph);
-        else if (!line.empty()) std::cout << "  메뉴에 없는 선택입니다. 1~7 또는 q 를 입력하세요.\n";
-        if (!keepGoing) break;
+        long long k = 0;
+        if (toNumber(line, k) && k >= 1 && k <= FEATURE_COUNT) {
+            keepGoing = runFeature(static_cast<int>(k), app, graph, nullptr);
+        } else if (!line.empty()) {
+            std::cout << "  메뉴에 없는 선택입니다. 1~" << FEATURE_COUNT << " 또는 q 를 입력하세요.\n";
+        }
     }
     std::cout << "종료합니다.\n";
     return 0;

@@ -28,5 +28,7 @@ Release/
 data/*.csv
 !data/sample.csv
 !data/sample_stations.csv
+!data/nowongu_stations.csv
+!data/nowongu_trips.csv
 data/*.zip
 data/*.xlsx
