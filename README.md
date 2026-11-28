@@ -10,7 +10,7 @@
 ### 1) make (Mac / Linux, 권장)
 
 ```bash
-make run     # 빌드 후 샘플 데이터(data/sample_stations.csv, data/sample.csv)로 실행
+make run     # 빌드 후 노원구 샘플(data/nowongu_stations.csv, data/nowongu_trips.csv)로 실행
 make test    # tests/ 의 테스트 실행
 make clean   # 빌드 결과 삭제
 ```
@@ -32,12 +32,13 @@ g++ 한 줄 빌드: `g++ -std=c++17 -Iinclude src/*.cpp src/modules/*.cpp -o dda
 
 ```bash
 ./ddareungi [대여소 정보 CSV] [대여이력 CSV]
-./ddareungi       # 인수 없음 → 샘플: data/sample_stations.csv, data/sample.csv
+./ddareungi       # 인수 없음 → 노원구 샘플: data/nowongu_stations.csv, data/nowongu_trips.csv
 ./ddareungi "data/공공자전거 대여소 정보(26.6월 기준).csv" "data/서울특별시 공공자전거 대여이력 정보_2606.csv"
 ```
 
-- 시작할 때 대여소 트리 → 대여이력 리스트 → 그래프 → 자전거 트리 → 정렬용 배열을 만들고 메뉴를 띄웁니다.
-- 메뉴 번호(1~7)를 고르고 값을 입력하면 결과를 출력한 뒤 다시 메뉴로 돌아옵니다. **`q` 를 입력하면 종료**하고, 값을 묻는 중에 빈 Enter 를 누르면 메뉴로 돌아갑니다.
+- 시작할 때 대여소 트리 → 대여이력 리스트 → 그래프 → 자전거 트리 → 정렬용 배열을 만듭니다.
+- 먼저 기능 1~7 을 차례로 한 번씩 체험합니다. 값을 물으면 Enter 로 예시 값, 직접 입력, `s` 로 건너뛰기 중 고릅니다.
+- 그다음 메뉴 번호(1~7)를 고르고 값을 입력하면 결과를 출력한 뒤 다시 메뉴로 돌아옵니다. **`q` 를 입력하면 종료**하고, 값을 묻는 중에 빈 Enter 를 누르면 메뉴로 돌아갑니다.
 
 > 원본 CSV는 용량이 커서 저장소에 포함하지 않았습니다. 인수 없이 실행하면 샘플 데이터로 바로 실행됩니다.
 
@@ -50,6 +51,8 @@ CMake를 쓰는 경우: `cmake -B build && cmake --build build`
 - 원본 CSV는 용량이 커서 저장소에 올리지 않습니다. 내려받아 `data/` 폴더에 넣으세요.
 - `data/sample.csv`: 대여이력 샘플 (헤더 + 19건)
 - `data/sample_stations.csv`: 대여소 정보 샘플 (sample.csv 에 나오는 대여소 30곳, 원본과 같은 형식)
+- `data/nowongu_trips.csv`: 2026년 6월 대여이력 중 대여·반납 대여소가 모두 노원구인 195,506건 (원본 순서 유지, CP949 → UTF-8). 실행 기본값
+- `data/nowongu_stations.csv`: 노원구 대여소 149곳 (원본과 같은 형식). 실행 기본값
 
 ## 폴더 구조
 
@@ -61,7 +64,7 @@ include/
 src/
   main.cpp    메뉴 (입력 → 결과 출력)
   modules/    기능별 구현
-data/         데이터 (sample.csv만 커밋)
+data/         데이터 (sample*.csv, nowongu_*.csv만 커밋)
 docs/         제안서·보고서 자료
 ```
 
