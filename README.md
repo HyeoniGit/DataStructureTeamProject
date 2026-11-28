@@ -48,8 +48,8 @@ CMake를 쓰는 경우: `cmake -B build && cmake --build build`
 - [서울시 공공자전거 따릉이 대여소 정보](https://data.seoul.go.kr/dataList/OA-13252/F/1/datasetView.do): 대여소번호, 대여소명, 위치, 거치대 수 (`.xlsx` → CSV(UTF-8)로 변환해서 사용)
 - [서울시 공공자전거 따릉이 대여이력 정보](https://data.seoul.go.kr/dataList/OA-15182/F/1/datasetView.do): 월 단위 CSV
 - 원본 CSV는 용량이 커서 저장소에 올리지 않습니다. 내려받아 `data/` 폴더에 넣으세요.
-- `data/sample.csv`: 대여이력 샘플 (헤더 + 19건)
-- `data/sample_stations.csv`: 대여소 정보 샘플 (sample.csv 에 나오는 대여소 30곳, 원본과 같은 형식)
+- `data/sample.csv`: 대여이력 1만 건 (2026년 6월 원본 4,182,797건에서 약 418건마다 1건씩 뽑아 한 달 전체를 고르게 담음, 원본 줄 순서 유지, CP949 → UTF-8 변환)
+- `data/sample_stations.csv`: 대여소 정보 전체 2,789곳 (`공공자전거 대여소 정보(26.6월 기준).xlsx` → CSV(UTF-8))
 
 ## 폴더 구조
 
@@ -61,7 +61,7 @@ include/
 src/
   main.cpp    메뉴 (입력 → 결과 출력)
   modules/    기능별 구현
-data/         데이터 (sample.csv만 커밋)
+data/         데이터 (sample.csv, sample_stations.csv만 커밋)
 docs/         제안서·보고서 자료
 ```
 
